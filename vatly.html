@@ -3,7 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vật lý đại cương 1 — 16 Chương Toàn diện (Lương Duyên Bình)</title>
+  <title>Vật lý đại cương 1 — Chương 0–16 Toàn diện (Lương Duyên Bình)</title>
+  <meta name="theme-color" content="#090d16">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22V%E1%BA%ADt%20l%C3%BD%20%C4%91%E1%BA%A1i%20c%C6%B0%C6%A1ng%201%22%2C%22short_name%22%3A%22VatLy1%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23090d16%22%2C%22theme_color%22%3A%22%236366f1%22%7D">
   
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1105,6 +1110,96 @@
       .formula-card { break-inside: avoid; page-break-inside: avoid; margin-bottom: 1.25rem !important; border: 1px solid #ccc !important; }
     }
 
+    /* Exam tags */
+    .badge-exam {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.2rem 0.55rem;
+      border-radius: 9999px;
+      letter-spacing: 0.02em;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    .badge-exam.midterm {
+      background: rgba(99, 102, 241, 0.15);
+      color: #818cf8;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+    }
+    .badge-exam.final {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    /* Formula Classification */
+    .formula-type-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      display: inline-block;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
+    .formula-type-badge.law {
+      background: rgba(99, 102, 241, 0.15);
+      color: var(--primary-light);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+    }
+    .formula-type-badge.derived {
+      background: rgba(16, 185, 129, 0.12);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+
+    /* Bookmark button */
+    .btn-bookmark {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.25rem 0.6rem;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .btn-bookmark:hover {
+      background: rgba(245, 158, 11, 0.12);
+      color: #fbbf24;
+      border-color: rgba(245, 158, 11, 0.4);
+    }
+    .btn-bookmark.active {
+      background: rgba(245, 158, 11, 0.18);
+      color: #f59e0b;
+      border-color: #f59e0b;
+      box-shadow: 0 0 8px rgba(245, 158, 11, 0.25);
+    }
+
+    /* Simulation Canvas & Controls */
+    .sim-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      margin-top: 0.75rem;
+    }
+    .sim-grid {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 1.25rem;
+      align-items: center;
+    }
+    @media (max-width: 820px) {
+      .sim-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
     /* =========================================================
        7. RESPONSIVE & MOBILE
        ========================================================= */
@@ -1218,6 +1313,10 @@
           <span>Tiến độ toàn khóa:</span>
           <span class="score-num" id="globalProgressText">0/170 bài (0%)</span>
         </div>
+        <div style="margin-top:0.4rem; display:flex; justify-content:space-between; align-items:center; font-size:0.78rem; color:var(--text-muted);">
+          <span>⭐ Sổ tay bài đã lưu:</span>
+          <span id="sidebarBookmarksCount" style="color:#fbbf24; font-weight:700;">0 bài</span>
+        </div>
       </div>
 
       <ul class="chapter-nav-list" id="chapterNavList">
@@ -1324,7 +1423,8 @@
       activeChapterId: 0,
       activeView: "lectures", // 'lectures' | 'formulas' | 'review'
       theme: "dark",
-      exercises: {} // { [exId]: { userVal: string, isCorrect: boolean, solvedAt: number } }
+      exercises: {}, // { [exId]: { userVal: string, isCorrect: boolean, solvedAt: number } }
+      bookmarks: [] // [exId1, exId2, ...]
     };
 
     function loadState() {
@@ -1336,9 +1436,42 @@
             appState = { ...appState, ...parsed };
           }
         }
+        if (!Array.isArray(appState.bookmarks)) {
+          appState.bookmarks = [];
+        }
       } catch (err) {
         console.warn("localStorage read failed:", err);
       }
+    }
+
+    function toggleBookmark(exId) {
+      if (!Array.isArray(appState.bookmarks)) appState.bookmarks = [];
+      const idx = appState.bookmarks.indexOf(exId);
+      if (idx >= 0) {
+        appState.bookmarks.splice(idx, 1);
+      } else {
+        appState.bookmarks.push(exId);
+      }
+      saveState();
+
+      const btn = document.getElementById(`btn_bm_${exId}`);
+      if (btn) {
+        const isBm = appState.bookmarks.includes(exId);
+        btn.className = `btn-bookmark ${isBm ? 'active' : ''}`;
+        btn.innerHTML = isBm ? "⭐ Đã lưu" : "☆ Lưu";
+      }
+      const btnRev = document.getElementById(`btn_bm_rev_${exId}`);
+      if (btnRev) {
+        const isBm = appState.bookmarks.includes(exId);
+        btnRev.className = `btn-bookmark ${isBm ? 'active' : ''}`;
+        btnRev.innerHTML = isBm ? "⭐ Đã lưu" : "☆ Lưu";
+      }
+
+      const optBm = document.getElementById("optReviewBookmarks");
+      if (optBm) {
+        optBm.textContent = `⭐ Sổ tay bài tập đã lưu (${appState.bookmarks.length})`;
+      }
+      updateGlobalStats();
     }
 
     function saveState() {
@@ -1467,6 +1600,8 @@
       const pct = totalEx > 0 ? Math.round((solvedEx / totalEx) * 100) : 0;
       const el = document.getElementById("globalProgressText");
       if (el) el.textContent = `${solvedEx}/${totalEx} bài (${pct}%)`;
+      const bmEl = document.getElementById("sidebarBookmarksCount");
+      if (bmEl) bmEl.textContent = `${(appState.bookmarks || []).length} bài`;
     }
 
     function selectChapter(chId) {
@@ -1593,9 +1728,14 @@
           `;
         }
 
+        const isCoreLaw = /định luật|nguyên lý|bảo toàn|phương trình trạng thái|phương trình cơ bản/i.test(f.name);
+        const formulaBadge = isCoreLaw
+          ? `<span class="formula-type-badge law">📌 Định luật gốc</span>`
+          : `<span class="formula-type-badge derived">⚡ Công thức suy rộng</span>`;
+
         formulasHtml += `
           <div class="formula-card">
-            <div class="formula-name"><strong>2.${idx + 1}</strong> ${f.name}</div>
+            <div class="formula-name"><strong>2.${idx + 1}</strong> ${f.name} ${formulaBadge}</div>
             <div class="formula-display-box">$$${f.latex}$$</div>
             <div class="formula-meaning-text"><strong>Ý nghĩa:</strong> ${f.meaning}</div>
             ${symBoxHtml}
@@ -1610,6 +1750,65 @@
         `;
       });
       formulasHtml += `</div>`;
+
+      // 2b. Mô phỏng động học tương tác (Chương 1)
+      let simHtml = "";
+      if (ch.id === 1) {
+        simHtml = `
+          <div class="section-block">
+            <div class="section-header-title"><span>🎮</span> Mô phỏng tương tác: Vectơ Vận tốc & Gia tốc trong chuyển động tròn</div>
+            <p style="font-size:0.875rem; color:var(--text-muted); margin-bottom:1rem;">
+              Trực quan hóa thời gian thực: Kéo thanh trượt để quan sát vectơ vận tốc tiếp tuyến $\vec{v}$, gia tốc tiếp tuyến $\vec{a}_t$, gia tốc pháp tuyến hướng tâm $\vec{a}_n$ và gia tốc toàn phần $\vec{a}$.
+            </p>
+            <div class="sim-container">
+              <div class="sim-grid">
+                <div style="display:flex; justify-content:center; align-items:center; background:var(--bg-base); border-radius:var(--radius-sm); border:1px solid var(--border-subtle); padding:0.5rem;">
+                  <canvas id="circularMotionCanvas" width="420" height="340" style="max-width:100%; height:auto; display:block;"></canvas>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:0.85rem;">
+                  <div>
+                    <div style="display:flex; justify-content:space-between; font-size:0.84rem; font-weight:600; margin-bottom:0.25rem;">
+                      <span>Bán kính $R$:</span>
+                      <span id="simValR" style="color:var(--primary-light);">1.5 m</span>
+                    </div>
+                    <input type="range" id="simSliderR" min="0.8" max="2.5" step="0.1" value="1.5" style="width:100%; cursor:pointer;">
+                  </div>
+                  <div>
+                    <div style="display:flex; justify-content:space-between; font-size:0.84rem; font-weight:600; margin-bottom:0.25rem;">
+                      <span>Tốc độ góc $\omega$:</span>
+                      <span id="simValOmega" style="color:var(--primary-light);">2.0 rad/s</span>
+                    </div>
+                    <input type="range" id="simSliderOmega" min="0.5" max="5.0" step="0.1" value="2.0" style="width:100%; cursor:pointer;">
+                  </div>
+                  <div>
+                    <div style="display:flex; justify-content:space-between; font-size:0.84rem; font-weight:600; margin-bottom:0.25rem;">
+                      <span>Gia tốc góc $\beta$:</span>
+                      <span id="simValBeta" style="color:var(--primary-light);">0.8 rad/s²</span>
+                    </div>
+                    <input type="range" id="simSliderBeta" min="0.0" max="3.0" step="0.1" value="0.8" style="width:100%; cursor:pointer;">
+                  </div>
+                  <div style="background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:0.65rem 0.85rem; font-size:0.82rem; display:grid; grid-template-columns: 1fr 1fr; gap:0.4rem;">
+                    <div>Vận tốc $v$: <strong id="simReadV" style="color:#10b981;">3.00 m/s</strong></div>
+                    <div>Gia tốc pháp $a_n$: <strong id="simReadAn" style="color:#0284c7;">6.00 m/s²</strong></div>
+                    <div>Gia tốc tiếp $a_t$: <strong id="simReadAt" style="color:#34d399;">1.20 m/s²</strong></div>
+                    <div>Toàn phần $a$: <strong id="simReadA" style="color:#ef4444;">6.12 m/s²</strong></div>
+                  </div>
+                  <div style="display:flex; gap:0.5rem; margin-top:0.25rem;">
+                    <button class="btn-action btn-check" id="btnSimPlayPause" onclick="toggleSimPlayPause()" style="flex:1;">⏸️ Tạm dừng</button>
+                    <button class="btn-action btn-secondary" onclick="resetSim()" style="flex:1;">🔄 Đặt lại</button>
+                  </div>
+                  <div style="font-size:0.75rem; color:var(--text-muted); line-height:1.4;">
+                    <span style="color:#10b981; font-weight:bold;">■ $\vec{v}$</span> tiếp tuyến | 
+                    <span style="color:#34d399; font-weight:bold;">■ $\vec{a}_t$</span> gia tốc tiếp | 
+                    <span style="color:#0284c7; font-weight:bold;">■ $\vec{a}_n$</span> gia tốc pháp ($v^2/R$) | 
+                    <span style="color:#ef4444; font-weight:bold;">■ $\vec{a}$</span> toàn phần.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
 
       // 3. Phân dạng bài tập
       let typesHtml = `
@@ -1677,8 +1876,11 @@
         const saved = appState.exercises[item.id] || {};
         const isSolved = saved.isCorrect === true;
         const isWrong = saved.isCorrect === false;
+        const isBookmarked = (appState.bookmarks || []).includes(item.id);
         const badgeClass = item.type === "easy" ? "badge-easy" : (item.type === "mid" ? "badge-mid" : "badge-hard");
         const badgeText = item.type === "easy" ? "Dễ" : (item.type === "mid" ? "Vừa" : "Khó");
+        const examBadgeClass = ch.num <= 8 ? "midterm" : "final";
+        const examBadgeText = ch.num <= 8 ? "Giữa kỳ" : "Cuối kỳ";
 
         let hintsHtml = "";
         (item.hints || []).forEach((h, hIdx) => {
@@ -1688,13 +1890,19 @@
         exercisesHtml += `
           <div class="exercise-item ${isSolved ? 'solved-correct' : (isWrong ? 'solved-wrong' : '')}" id="card_${item.id}">
             <div class="exercise-topbar">
-              <div class="ex-index-wrap">
+              <div class="ex-index-wrap" style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
                 <strong>Bài ${idx + 1}.</strong>
                 <span class="ex-badge ${badgeClass}">${badgeText}</span>
+                <span class="badge-exam ${examBadgeClass}">${examBadgeText}</span>
               </div>
-              <span id="badge_status_${item.id}" style="font-size:0.8rem; font-weight:700; color:${isSolved ? 'var(--success)' : (isWrong ? 'var(--danger)' : 'var(--text-dim)')}">
-                ${isSolved ? '✓ Đã đúng' : (isWrong ? '✗ Chưa đúng' : 'Chưa làm')}
-              </span>
+              <div style="display:flex; align-items:center; gap:0.6rem;">
+                <button class="btn-bookmark ${isBookmarked ? 'active' : ''}" id="btn_bm_${item.id}" onclick="toggleBookmark('${item.id}')" title="Lưu vào Sổ tay lỗi sai / Ôn thi">
+                  ${isBookmarked ? '⭐ Đã lưu' : '☆ Lưu'}
+                </button>
+                <span id="badge_status_${item.id}" style="font-size:0.8rem; font-weight:700; color:${isSolved ? 'var(--success)' : (isWrong ? 'var(--danger)' : 'var(--text-dim)')}">
+                  ${isSolved ? '✓ Đã đúng' : (isWrong ? '✗ Chưa đúng' : 'Chưa làm')}
+                </span>
+              </div>
             </div>
 
             <div class="exercise-question">${item.q}</div>
@@ -1767,12 +1975,16 @@
 
       container.innerHTML = `
         <div class="ch-header-banner">
-          <span class="ch-part-label">${ch.part}</span>
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.4rem;">
+            <span class="ch-part-label">${ch.part}</span>
+            <span class="badge-exam ${ch.num <= 8 ? 'midterm' : 'final'}">${ch.num <= 8 ? '🎯 Đề cương Giữa kỳ' : '🏁 Đề cương Cuối kỳ'}</span>
+          </div>
           <h1 class="ch-title-main">Chương ${ch.num}: ${ch.title}</h1>
           <p class="ch-summary-text">${ch.summary}</p>
         </div>
         ${natureHtml}
         ${formulasHtml}
+        ${simHtml}
         ${typesHtml}
         ${examplesHtml}
         ${pitfallsHtml}
@@ -1781,6 +1993,12 @@
       `;
 
       renderAllMath();
+      if (ch.id === 1) {
+        setTimeout(initCircularMotionSim, 50);
+      } else if (simAnimId) {
+        cancelAnimationFrame(simAnimId);
+        simAnimId = null;
+      }
     }
 
     /* =========================================================
@@ -1799,6 +2017,40 @@
       // Support scientific notation 3.64*10^-22 or 3.64x10^-22 or 3.64×10^-22
       s = s.replace(/[\*x×]\s*10\^?/gi, "e");
       return parseFloat(s);
+    }
+
+    function detectUnitOrMagnitudeMistake(userNum, correctAns) {
+      if (Math.abs(correctAns) < 1e-12 || Math.abs(userNum) < 1e-12) return null;
+      if (userNum * correctAns < 0) {
+        const relOpp = Math.abs(-userNum - correctAns) / Math.abs(correctAns);
+        if (relOpp <= 0.08) {
+          return "⚠️ <strong>Đúng độ lớn nhưng ngược dấu!</strong> Kiểm tra lại chiều dương quy ước của hệ tọa độ hoặc quy ước dấu công/nhiệt lượng.";
+        }
+      }
+      const ratio = Math.abs(userNum / correctAns);
+      const commonFactors = [
+        { f: 100, msg: "Lệch 10² lần — bạn có quên đổi cm ↔ m hoặc cm² ↔ m² không?" },
+        { f: 0.01, msg: "Lệch 10⁻² lần — kiểm tra bước đổi cm ↔ m hoặc %!" },
+        { f: 1000, msg: "Lệch 10³ lần — kiểm tra đổi đơn vị g ↔ kg, mm ↔ m hoặc kJ ↔ J!" },
+        { f: 0.001, msg: "Lệch 10⁻³ lần — kiểm tra đổi đơn vị g ↔ kg, mm ↔ m hoặc kJ ↔ J!" },
+        { f: 1e5, msg: "Lệch 10⁵ lần — kiểm tra đổi đơn vị áp suất atm/bar ↔ Pa (N/m²)!" },
+        { f: 1e-5, msg: "Lệch 10⁻⁵ lần — kiểm tra đổi đơn vị áp suất Pa ↔ atm/bar!" },
+        { f: 1e6, msg: "Lệch 10⁶ lần — kiểm tra đổi đơn vị cm³ ↔ m³, MPa ↔ Pa hoặc MJ ↔ J!" },
+        { f: 1e-6, msg: "Lệch 10⁻⁶ lần — kiểm tra đổi đơn vị cm³ ↔ m³, μm ↔ m hoặc MJ ↔ J!" },
+        { f: 60, msg: "Lệch 60 lần — kiểm tra đổi phút ↔ giây hoặc vòng/phút (rpm) ↔ rad/s!" },
+        { f: 1/60, msg: "Lệch 1/60 lần — kiểm tra đổi phút ↔ giây!" },
+        { f: 3600, msg: "Lệch 3600 lần — kiểm tra đổi giờ ↔ giây hoặc km/h ↔ m/s!" },
+        { f: 1/3.6, msg: "Lệch 3.6 lần — kiểm tra quy đổi tốc độ km/h ↔ m/s (1 m/s = 3.6 km/h)!" },
+        { f: 3.6, msg: "Lệch 3.6 lần — kiểm tra quy đổi tốc độ km/h ↔ m/s (1 m/s = 3.6 km/h)!" },
+        { f: 4.184, msg: "Lệch ~4.18 lần — kiểm tra đổi nhiệt lượng cal ↔ Joule (1 cal ≈ 4.184 J)!" },
+        { f: 1/4.184, msg: "Lệch ~1/4.18 lần — kiểm tra đổi nhiệt lượng Joule ↔ cal!" }
+      ];
+      for (const item of commonFactors) {
+        if (Math.abs(ratio - item.f) / item.f <= 0.08) {
+          return `⚠️ <strong>Tính toán đúng hướng nhưng sai đơn vị:</strong> ${item.msg}`;
+        }
+      }
+      return null;
     }
 
     function checkAnswer(exId) {
@@ -1852,10 +2104,18 @@
 
       // UI update
       if (feedbackEl) {
-        feedbackEl.className = `feedback-banner show ${isCorrect ? 'success' : 'error'}`;
-        feedbackEl.innerHTML = isCorrect
-          ? "🎉 <strong>Chính xác!</strong> Bạn đã làm rất tốt."
-          : `⚠️ <strong>Chưa chính xác!</strong> Hãy xem lại đơn vị, dấu hoặc mở <em>Gợi ý / Lời giải</em> để được hướng dẫn.`;
+        if (isCorrect) {
+          feedbackEl.className = "feedback-banner show success";
+          feedbackEl.innerHTML = "🎉 <strong>Chính xác!</strong> Bạn đã làm rất tốt.";
+        } else {
+          const unitMsg = detectUnitOrMagnitudeMistake(userNum, correctAns);
+          feedbackEl.className = "feedback-banner show error";
+          if (unitMsg) {
+            feedbackEl.innerHTML = `${unitMsg}<br><small style="opacity:0.9;">Xem lại bước đổi đơn vị SI hoặc mở <em>Gợi ý / Lời giải</em> để xem chi tiết.</small>`;
+          } else {
+            feedbackEl.innerHTML = `⚠️ <strong>Chưa chính xác!</strong> Hãy xem lại đơn vị, dấu hoặc mở <em>Gợi ý / Lời giải</em> để được hướng dẫn.`;
+          }
+        }
       }
 
       if (cardEl) {
@@ -2049,15 +2309,259 @@
     let currentReviewAttempted = false;
     let reviewStats = { done: 0, correct: 0 };
 
+    /* =========================================================
+       INTERACTIVE KINEMATICS SIMULATION (CHAPTER 1)
+       ========================================================= */
+    let simAnimId = null;
+    let simRunning = true;
+    let simAngle = 0;
+    let simOmega = 2.0;
+    let simR = 1.5;
+    let simBeta = 0.8;
+    let simLastTime = null;
+
+    function initCircularMotionSim() {
+      const canvas = document.getElementById("circularMotionCanvas");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const sliderR = document.getElementById("simSliderR");
+      const sliderOmega = document.getElementById("simSliderOmega");
+      const sliderBeta = document.getElementById("simSliderBeta");
+
+      if (sliderR) {
+        sliderR.oninput = (e) => {
+          simR = parseFloat(e.target.value);
+          const valEl = document.getElementById("simValR");
+          if (valEl) valEl.textContent = `${simR.toFixed(1)} m`;
+          updateSimReadouts();
+        };
+      }
+      if (sliderOmega) {
+        sliderOmega.oninput = (e) => {
+          simOmega = parseFloat(e.target.value);
+          const valEl = document.getElementById("simValOmega");
+          if (valEl) valEl.textContent = `${simOmega.toFixed(1)} rad/s`;
+          updateSimReadouts();
+        };
+      }
+      if (sliderBeta) {
+        sliderBeta.oninput = (e) => {
+          simBeta = parseFloat(e.target.value);
+          const valEl = document.getElementById("simValBeta");
+          if (valEl) valEl.textContent = `${simBeta.toFixed(1)} rad/s²`;
+          updateSimReadouts();
+        };
+      }
+
+      updateSimReadouts();
+
+      if (simAnimId) cancelAnimationFrame(simAnimId);
+      simLastTime = performance.now();
+
+      function drawArrow(fromX, fromY, toX, toY, color, width, label) {
+        const headLen = 9;
+        const angle = Math.atan2(toY - fromY, toX - fromX);
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(toX, toY);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(toX, toY);
+        ctx.lineTo(toX - headLen * Math.cos(angle - Math.PI / 7), toY - headLen * Math.sin(angle - Math.PI / 7));
+        ctx.lineTo(toX - headLen * Math.cos(angle + Math.PI / 7), toY - headLen * Math.sin(angle + Math.PI / 7));
+        ctx.closePath();
+        ctx.fill();
+
+        if (label) {
+          ctx.font = "bold 12px monospace";
+          ctx.fillStyle = color;
+          ctx.fillText(label, toX + 6 * Math.cos(angle), toY + 6 * Math.sin(angle));
+        }
+        ctx.restore();
+      }
+
+      function frame(currentTime) {
+        if (!canvas || !document.getElementById("circularMotionCanvas")) return;
+        const dt = Math.min((currentTime - simLastTime) / 1000, 0.05);
+        simLastTime = currentTime;
+
+        if (simRunning) {
+          simOmega += simBeta * dt * 0.1;
+          if (simOmega > 5.5) simOmega = 1.0;
+          simAngle += simOmega * dt;
+          if (sliderOmega) {
+            sliderOmega.value = simOmega.toFixed(1);
+            const valEl = document.getElementById("simValOmega");
+            if (valEl) valEl.textContent = `${simOmega.toFixed(1)} rad/s`;
+          }
+          updateSimReadouts();
+        }
+
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        const cx = w / 2;
+        const cy = h / 2;
+        const pixelRadius = 45 * simR;
+
+        // Trajectory circle
+        ctx.strokeStyle = "rgba(99, 102, 241, 0.35)";
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(cx, cy, pixelRadius, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Center point O
+        ctx.fillStyle = "#94a3b8";
+        ctx.beginPath();
+        ctx.arc(cx, cy, 3.5, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Particle position
+        const px = cx + pixelRadius * Math.cos(simAngle);
+        const py = cy + pixelRadius * Math.sin(simAngle);
+
+        // Radius line r
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.35)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(px, py);
+        ctx.stroke();
+
+        // Direction vectors
+        const tangX = -Math.sin(simAngle);
+        const tangY = Math.cos(simAngle);
+        const normX = -Math.cos(simAngle);
+        const normY = -Math.sin(simAngle);
+
+        const vLen = Math.min(simOmega * simR * 14, 85);
+        const atLen = Math.min(simBeta * simR * 18, 70);
+        const anLen = Math.min(simOmega * simOmega * simR * 3.5, 80);
+
+        // 1. v (green)
+        drawArrow(px, py, px + tangX * vLen, py + tangY * vLen, "#10b981", 2.5, "v");
+
+        // 2. a_t (emerald)
+        if (atLen > 4) {
+          drawArrow(px, py, px + tangX * atLen, py + tangY * atLen, "#34d399", 2, "a_t");
+        }
+
+        // 3. a_n (cyan)
+        drawArrow(px, py, px + normX * anLen, py + normY * anLen, "#0284c7", 2.5, "a_n");
+
+        // 4. a (red)
+        const totX = normX * anLen + tangX * atLen;
+        const totY = normY * anLen + tangY * atLen;
+
+        ctx.strokeStyle = "rgba(239, 68, 68, 0.4)";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 2]);
+        ctx.beginPath();
+        ctx.moveTo(px + normX * anLen, py + normY * anLen);
+        ctx.lineTo(px + totX, py + totY);
+        ctx.lineTo(px + tangX * atLen, py + tangY * atLen);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        drawArrow(px, py, px + totX, py + totY, "#ef4444", 3, "a");
+
+        // Particle dot
+        ctx.fillStyle = "#f8fafc";
+        ctx.beginPath();
+        ctx.arc(px, py, 5.5, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.strokeStyle = "#6366f1";
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        simAnimId = requestAnimationFrame(frame);
+      }
+
+      simAnimId = requestAnimationFrame(frame);
+    }
+
+    function updateSimReadouts() {
+      const v = simOmega * simR;
+      const an = simOmega * simOmega * simR;
+      const at = simBeta * simR;
+      const a = Math.sqrt(at * at + an * an);
+
+      const elV = document.getElementById("simReadV");
+      const elAn = document.getElementById("simReadAn");
+      const elAt = document.getElementById("simReadAt");
+      const elA = document.getElementById("simReadA");
+
+      if (elV) elV.textContent = `${v.toFixed(2)} m/s`;
+      if (elAn) elAn.textContent = `${an.toFixed(2)} m/s²`;
+      if (elAt) elAt.textContent = `${at.toFixed(2)} m/s²`;
+      if (elA) elA.textContent = `${a.toFixed(2)} m/s²`;
+    }
+
+    function toggleSimPlayPause() {
+      simRunning = !simRunning;
+      const btn = document.getElementById("btnSimPlayPause");
+      if (btn) btn.innerHTML = simRunning ? "⏸️ Tạm dừng" : "▶️ Tiếp tục";
+    }
+
+    function resetSim() {
+      simAngle = 0;
+      simOmega = 2.0;
+      simR = 1.5;
+      simBeta = 0.8;
+      const slR = document.getElementById("simSliderR");
+      const slW = document.getElementById("simSliderOmega");
+      const slB = document.getElementById("simSliderBeta");
+      if (slR) slR.value = "1.5";
+      if (slW) slW.value = "2.0";
+      if (slB) slB.value = "0.8";
+      const valR = document.getElementById("simValR");
+      if (valR) valR.textContent = "1.5 m";
+      const valW = document.getElementById("simValOmega");
+      if (valW) valW.textContent = "2.0 rad/s";
+      const valB = document.getElementById("simValBeta");
+      if (valB) valB.textContent = "0.8 rad/s²";
+      updateSimReadouts();
+    }
+
     function initReviewFilters() {
       const sel = document.getElementById("reviewChapterSelect");
       if (sel && sel.options.length <= 1) {
+        const optMid = document.createElement("option");
+        optMid.value = "midterm";
+        optMid.textContent = "🎯 Đề cương Giữa kỳ (Chương 0–8)";
+        sel.appendChild(optMid);
+
+        const optFin = document.createElement("option");
+        optFin.value = "final";
+        optFin.textContent = "🏁 Đề cương Cuối kỳ (Chương 9–16)";
+        sel.appendChild(optFin);
+
+        const optBm = document.createElement("option");
+        optBm.value = "bookmarks";
+        optBm.id = "optReviewBookmarks";
+        optBm.textContent = `⭐ Sổ tay bài tập đã lưu (${(appState.bookmarks || []).length})`;
+        sel.appendChild(optBm);
+
         CH.forEach(ch => {
           const opt = document.createElement("option");
           opt.value = ch.num;
           opt.textContent = `Chương ${ch.num}: ${ch.title}`;
           sel.appendChild(opt);
         });
+      } else {
+        const optBm = document.getElementById("optReviewBookmarks");
+        if (optBm) optBm.textContent = `⭐ Sổ tay bài tập đã lưu (${(appState.bookmarks || []).length})`;
       }
     }
 
@@ -2086,9 +2590,13 @@
 
       const pool = [];
       CH.forEach(ch => {
-        if (chVal !== "all" && String(ch.num) !== String(chVal)) return;
+        if (chVal === "midterm" && ch.num > 8) return;
+        if (chVal === "final" && ch.num < 9) return;
+        if (chVal !== "all" && chVal !== "midterm" && chVal !== "final" && chVal !== "bookmarks" && String(ch.num) !== String(chVal)) return;
+
         if (ch.exercises) {
           ch.exercises.forEach(ex => {
+            if (chVal === "bookmarks" && !(appState.bookmarks || []).includes(ex.id)) return;
             if (diffVal !== "all" && ex.type !== diffVal) return;
             pool.push({ ...ex, chNum: ch.num, chTitle: ch.title });
           });
@@ -2096,9 +2604,12 @@
       });
 
       if (pool.length === 0) {
+        const emptyMsg = (chVal === "bookmarks")
+          ? "Sổ tay của bạn hiện chưa có bài tập nào. Hãy bấm nút '☆ Lưu' ở các bài tập trong bài giảng hoặc ôn tập để thêm vào đây!"
+          : "Không có câu hỏi nào khớp với bộ lọc hiện tại.";
         container.innerHTML = `
           <div class="exercise-item" style="text-align:center; padding:2rem;">
-            <p style="color:var(--text-dim); margin-bottom:1rem;">Không có câu hỏi nào khớp với bộ lọc hiện tại.</p>
+            <p style="color:var(--text-dim); margin-bottom:1rem;">${emptyMsg}</p>
             <button class="btn-action btn-secondary" onclick="document.getElementById('reviewChapterSelect').value='all'; document.getElementById('reviewDiffSelect').value='all'; renderReviewQuestion();">Đặt lại bộ lọc</button>
           </div>
         `;
@@ -2115,16 +2626,26 @@
         hintsHtml += `<p>• <strong>Gợi ý ${hIdx+1}:</strong> ${formatMultiline(h)}</p>`;
       });
 
+      const isBookmarked = (appState.bookmarks || []).includes(randomEx.id);
+      const examBadgeClass = randomEx.chNum <= 8 ? "midterm" : "final";
+      const examBadgeText = randomEx.chNum <= 8 ? "Giữa kỳ" : "Cuối kỳ";
+
       container.innerHTML = `
         <div class="exercise-item" id="card_rev_${randomEx.id}">
           <div class="exercise-topbar">
-            <div>
+            <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
               <span class="ch-part-label">Chương ${randomEx.chNum}: ${randomEx.chTitle}</span>
-              <span class="ex-badge ${badgeClass}" style="margin-left:0.5rem;">${badgeText}</span>
+              <span class="ex-badge ${badgeClass}">${badgeText}</span>
+              <span class="badge-exam ${examBadgeClass}">${examBadgeText}</span>
             </div>
-            <span id="badge_status_rev_${randomEx.id}" style="font-size:0.8rem; font-weight:700; color:var(--text-dim)">
-              Chế độ ôn tập
-            </span>
+            <div style="display:flex; align-items:center; gap:0.6rem;">
+              <button class="btn-bookmark ${isBookmarked ? 'active' : ''}" id="btn_bm_rev_${randomEx.id}" onclick="toggleBookmark('${randomEx.id}')" title="Lưu vào Sổ tay lỗi sai / Ôn thi">
+                ${isBookmarked ? '⭐ Đã lưu' : '☆ Lưu'}
+              </button>
+              <span id="badge_status_rev_${randomEx.id}" style="font-size:0.8rem; font-weight:700; color:var(--text-dim)">
+                Chế độ ôn tập
+              </span>
+            </div>
           </div>
 
           <div class="exercise-question">${randomEx.q}</div>
@@ -2199,9 +2720,16 @@
       updateReviewStatsDisplay();
 
       feedbackEl.className = `feedback-banner show ${isCorrect ? 'success' : 'error'}`;
-      feedbackEl.innerHTML = isCorrect
-        ? "🎉 <strong>Rất xuất sắc!</strong> Đáp án hoàn toàn chuẩn xác (trong giới hạn sai số ±5%)."
-        : `⚠️ <strong>Chưa chính xác!</strong> Bạn có thể xem gợi ý hoặc bấm nút '📖 Lời giải chi tiết' vừa được mở khóa.`;
+      if (isCorrect) {
+        feedbackEl.innerHTML = "🎉 <strong>Rất xuất sắc!</strong> Đáp án hoàn toàn chuẩn xác (trong giới hạn sai số ±5%).";
+      } else {
+        const unitMsg = detectUnitOrMagnitudeMistake(userNum, correctAns);
+        if (unitMsg) {
+          feedbackEl.innerHTML = `${unitMsg}<br><small style="opacity:0.9;">Bạn có thể mở khóa '📖 Lời giải chi tiết' bên cạnh để kiểm tra lại.</small>`;
+        } else {
+          feedbackEl.innerHTML = `⚠️ <strong>Chưa chính xác!</strong> Bạn có thể xem gợi ý hoặc bấm nút '📖 Lời giải chi tiết' vừa được mở khóa.`;
+        }
+      }
     }
 
     /* =========================================================
@@ -2277,6 +2805,35 @@
       document.getElementById("btnViewReview")?.addEventListener("click", () => switchView("review"));
       // btnNextReviewQuestion removed (no duplicate)
     });
+  </script>
+  <!-- Offline Cache PWA Support -->
+  <script>
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      const swScript = `
+        const CACHE_NAME = 'vatly-pwa-v1';
+        self.addEventListener('install', e => self.skipWaiting());
+        self.addEventListener('activate', e => e.waitUntil(clients.claim()));
+        self.addEventListener('fetch', e => {
+          if (e.request.method !== 'GET') return;
+          e.respondWith(
+            caches.match(e.request).then(cached => {
+              const netFetch = fetch(e.request).then(res => {
+                if (res && res.status === 200 && res.type === 'basic') {
+                  const copy = res.clone();
+                  caches.open(CACHE_NAME).then(c => c.put(e.request, copy));
+                }
+                return res;
+              }).catch(() => cached);
+              return cached || netFetch;
+            })
+          );
+        });
+      `;
+      try {
+        const blob = new Blob([swScript], { type: 'application/javascript' });
+        navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
+      } catch (err) {}
+    }
   </script>
 </body>
 </html>
