@@ -1110,39 +1110,6 @@
       .formula-card { break-inside: avoid; page-break-inside: avoid; margin-bottom: 1.25rem !important; border: 1px solid #ccc !important; }
     }
 
-    /* Pinned Constants Bar */
-    .constants-pinned-bar {
-      background: var(--bg-surface);
-      border-bottom: 1px solid var(--border-subtle);
-      padding: 0.55rem 1.5rem;
-      font-size: 0.8rem;
-      position: sticky;
-      top: 0;
-      z-index: 30;
-      backdrop-filter: blur(8px);
-    }
-    .constants-pinned-inner {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 0.65rem;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-    .const-tag {
-      color: var(--primary-light);
-      font-weight: 700;
-    }
-    .const-item {
-      font-family: var(--font-mono);
-      color: var(--text-main);
-      font-weight: 600;
-    }
-    .const-sep {
-      color: var(--text-dim);
-      opacity: 0.6;
-    }
-
     /* Hotkey Bar */
     .hotkey-hint-bar {
       display: inline-flex;
@@ -1486,22 +1453,6 @@
 
     <!-- MAIN CONTENT -->
     <main class="content-area" id="mainContent">
-
-      <!-- PINNED PHYSICAL CONSTANTS BAR -->
-      <div class="constants-pinned-bar">
-        <div class="constants-pinned-inner">
-          <span class="const-tag">📌 <strong>Hằng số chuẩn:</strong></span>
-          <span class="const-item">$g = 9.8\text{ m/s}^2$</span>
-          <span class="const-sep">•</span>
-          <span class="const-item">$R = 8.31\text{ J/(mol}\cdot\text{K)}$</span>
-          <span class="const-sep">•</span>
-          <span class="const-item">$N_A = 6.02 \times 10^{23}\text{ mol}^{-1}$</span>
-          <span class="const-sep">•</span>
-          <span class="const-item">$k_B = 1.38 \times 10^{-23}\text{ J/K}$</span>
-          <span class="const-sep">•</span>
-          <span class="const-item">$c = 3.0 \times 10^8\text{ m/s}$</span>
-        </div>
-      </div>
 
       <!-- CHAPTER VIEW -->
       <div id="chapterMainView" class="container-reading">
