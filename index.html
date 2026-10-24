@@ -2051,6 +2051,7 @@
               <input type="text" inputmode="decimal" autocomplete="off" class="input-answer" id="input_${item.id}" value="${saved.userVal || ''}" placeholder="Nhập đáp số..." onkeydown="if(event.key==='Enter') checkAnswer('${item.id}')">
               <span class="ex-unit-label">${item.unit || ''}</span>
               <button class="btn-action btn-check" onclick="checkAnswer('${item.id}')">Kiểm tra</button>
+              <button class="btn-action btn-secondary" onclick="resetSingleExercise('${item.id}')" title="Xóa kết quả và làm lại câu này">🔄 Làm lại</button>
               <button class="btn-action btn-secondary" onclick="toggleAccordion('hints_${item.id}')">💡 Gợi ý</button>
               <button class="btn-action btn-secondary" onclick="toggleAccordion('sol_${item.id}')">📖 Lời giải 4 bước</button>
             </div>
@@ -2198,6 +2199,103 @@
       return null;
     }
 
+    function resetSingleExercise(exId) {
+      if (appState.exercises && appState.exercises[exId]) {
+        delete appState.exercises[exId];
+        saveState();
+      }
+
+      const inputEl = document.getElementById(`input_${exId}`);
+      if (inputEl) inputEl.value = "";
+
+      const feedbackEl = document.getElementById(`feedback_${exId}`);
+      if (feedbackEl) {
+        feedbackEl.className = "feedback-banner";
+        feedbackEl.innerHTML = "";
+      }
+
+      const cardEl = document.getElementById(`card_${exId}`);
+      if (cardEl) {
+        cardEl.className = "exercise-item";
+      }
+
+      const badgeStatusEl = document.getElementById(`badge_status_${exId}`);
+      if (badgeStatusEl) {
+        badgeStatusEl.textContent = "Chưa làm";
+        badgeStatusEl.style.color = "var(--text-dim)";
+      }
+
+      const hintsEl = document.getElementById(`hints_${exId}`);
+      if (hintsEl) hintsEl.classList.remove("show");
+      const solEl = document.getElementById(`sol_${exId}`);
+      if (solEl) solEl.classList.remove("show");
+
+      // Update chapter scorecard if present
+      const ch = CH.find(c => c.id === appState.activeChapterId);
+      if (ch && ch.exercises) {
+        const total = ch.exercises.length;
+        let correct = 0;
+        ch.exercises.forEach(e => {
+          if (appState.exercises[e.id]?.isCorrect) correct++;
+        });
+        const score10 = total > 0 ? (Math.round((correct / total) * 100) / 10).toFixed(1) : "0.0";
+        const scoreValEl = document.getElementById("chapterScoreVal");
+        if (scoreValEl) scoreValEl.textContent = `${score10} / 10`;
+
+        const scoreMsgEl = document.querySelector(".scorecard-msg");
+        if (scoreMsgEl) {
+          scoreMsgEl.innerHTML = `Bạn đã hoàn thành <strong>${correct} / ${total}</strong> bài tập của Chương ${ch.num}.`;
+        }
+
+        const ratingEl = document.querySelector(".scorecard-rating");
+        if (ratingEl) {
+          if (score10 >= 9.0) {
+            ratingEl.textContent = "Xuất sắc! Làm chủ toàn diện kiến thức chương này";
+            ratingEl.style.color = "var(--success)";
+          } else if (score10 >= 8.0) {
+            ratingEl.textContent = "Giỏi! Nắm rất chắc lý thuyết và kỹ năng giải toán";
+            ratingEl.style.color = "var(--primary-light)";
+          } else if (score10 >= 6.5) {
+            ratingEl.textContent = "Khá! Cần luyện thêm bài tập mức Vừa và Khó";
+            ratingEl.style.color = "var(--warning)";
+          } else {
+            ratingEl.textContent = "Cần cố gắng! Hãy làm lại các bài tập chưa đạt";
+            ratingEl.style.color = "var(--text-dim)";
+          }
+        }
+      }
+
+      updateGlobalStats();
+      renderSidebar();
+    }
+
+    function resetReviewExercise(id) {
+      const inputEl = document.getElementById(`input_rev_${id}`);
+      if (inputEl) inputEl.value = "";
+      const fb = document.getElementById(`feedback_rev_${id}`);
+      if (fb) {
+        fb.className = "feedback-banner";
+        fb.innerHTML = "";
+      }
+      const card = document.getElementById(`card_rev_${id}`);
+      if (card) card.className = "exercise-item";
+      const badge = document.getElementById(`badge_status_rev_${id}`);
+      if (badge) {
+        badge.textContent = "Chế độ ôn tập";
+        badge.style.color = "var(--text-dim)";
+      }
+      const sol = document.getElementById(`sol_rev_${id}`);
+      if (sol) sol.classList.remove("show");
+      const hints = document.getElementById(`hints_rev_${id}`);
+      if (hints) hints.classList.remove("show");
+      currentReviewAttempted = false;
+      const btnSol = document.getElementById(`btn_sol_rev_${id}`);
+      if (btnSol) {
+        btnSol.innerHTML = "🔒 Lời giải (Thử trước)";
+        btnSol.className = "btn-action btn-secondary";
+      }
+    }
+
     function checkAnswer(exId) {
       const inputEl = document.getElementById(`input_${exId}`);
       if (!inputEl) return;
@@ -2226,17 +2324,31 @@
         return;
       }
 
-      // Tolerance calculation
+      // Tolerance calculation (Strict 5% relative tolerance or defined absolute tolerance)
       const correctAns = targetEx.ans;
-      const tol = targetEx.tol || 0.05;
-      let isCorrect = false;
+      const rawTol = targetEx.tol;
+      let maxAbsTol = 0.05;
+      let maxRelTol = 0.05;
 
+      if (rawTol !== undefined && rawTol !== null) {
+        if (rawTol >= 0.05) {
+          maxAbsTol = rawTol;
+          maxRelTol = 0.05;
+        } else {
+          maxRelTol = rawTol;
+          maxAbsTol = Math.abs(correctAns) * maxRelTol;
+        }
+      } else {
+        maxAbsTol = Math.max(Math.abs(correctAns) * 0.05, 0.05);
+      }
+
+      let isCorrect = false;
       if (Math.abs(correctAns) < 1e-6) {
-        isCorrect = Math.abs(userNum) <= 0.05;
+        isCorrect = Math.abs(userNum) <= maxAbsTol;
       } else {
         const relErr = Math.abs(userNum - correctAns) / Math.abs(correctAns);
         const absErr = Math.abs(userNum - correctAns);
-        isCorrect = (relErr <= tol) || (absErr <= Math.max(tol, 0.05));
+        isCorrect = (relErr <= maxRelTol) || (absErr <= maxAbsTol);
       }
 
       // Save state
@@ -2813,6 +2925,7 @@
             <input type="text" inputmode="decimal" autocomplete="off" class="input-answer" id="input_rev_${randomEx.id}" placeholder="Nhập đáp số..." onkeydown="if(event.key==='Enter') checkReviewAnswer('${randomEx.id}', ${randomEx.ans}, ${randomEx.tol || 0.05})">
             <span class="ex-unit-label">${randomEx.unit || ''}</span>
             <button class="btn-action btn-check" onclick="checkReviewAnswer('${randomEx.id}', ${randomEx.ans}, ${randomEx.tol || 0.05})">Kiểm tra</button>
+            <button class="btn-action btn-secondary" onclick="resetReviewExercise('${randomEx.id}')" title="Đặt lại câu này">🔄 Làm lại</button>
             <button class="btn-action btn-secondary" onclick="toggleAccordion('hints_rev_${randomEx.id}')">💡 Gợi ý</button>
             <button class="btn-action btn-secondary" id="btn_sol_rev_${randomEx.id}" onclick="toggleReviewSolution('${randomEx.id}')">🔒 Lời giải (Thử trước)</button>
           </div>
@@ -2863,13 +2976,27 @@
         return;
       }
 
+      let maxAbsTol = 0.05;
+      let maxRelTol = 0.05;
+      if (tol !== undefined && tol !== null) {
+        if (tol >= 0.05) {
+          maxAbsTol = tol;
+          maxRelTol = 0.05;
+        } else {
+          maxRelTol = tol;
+          maxAbsTol = Math.abs(correctAns) * maxRelTol;
+        }
+      } else {
+        maxAbsTol = Math.max(Math.abs(correctAns) * 0.05, 0.05);
+      }
+
       let isCorrect = false;
       if (Math.abs(correctAns) < 1e-6) {
-        isCorrect = Math.abs(userNum) <= 0.05;
+        isCorrect = Math.abs(userNum) <= maxAbsTol;
       } else {
         const relErr = Math.abs(userNum - correctAns) / Math.abs(correctAns);
         const absErr = Math.abs(userNum - correctAns);
-        isCorrect = (relErr <= tol) || (absErr <= Math.max(tol, 0.05));
+        isCorrect = (relErr <= maxRelTol) || (absErr <= maxAbsTol);
       }
 
       // Mark attempted and unlock solution button
